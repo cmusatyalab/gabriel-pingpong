@@ -69,4 +69,4 @@ RUN cd caffe-fast-rcnn && \
 #RUN tar -xvzf ikea_model.tar.gz
 
 EXPOSE 8080 7070 9098 9111 22222
-CMD ["bash", "-c", "gabriel-control -d -n eth0 -l & sleep 5; gabriel-ucomm -s 127.0.0.1:8021 & sleep 5;  cd /gabriel-pingpong && python pingpong_server.py & sleep 1; cd /gabriel-pingpong && python proxy.py -s 127.0.0.1:8021"]
+CMD ["bash", "-c", "gabriel-control -d -n eth0 -l & sleep 5; gabriel-ucomm -s 127.0.0.1:8021 & sleep 5;  cd /gabriel-pingpong && python proxy.py -s 127.0.0.1:8021"]
