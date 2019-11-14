@@ -68,15 +68,13 @@ def display_state(state):
 
 #############################################################
 
-def check_image(img, display_list):
+def check_image(img):
     zc.checkBlurByGradient(img)
 
-def find_table(img, display_list):
+def find_table(img):
     ## find white border
     DoB = zc.get_DoB(img, 1, 31, method = 'Average')
-    zc.check_and_display('DoB', DoB, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
     mask_white = zc.color_inrange(DoB, 'HSV', V_L = 10)
-    zc.check_and_display_mask('mask_white_raw', img, mask_white, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
 
     ## find purple table (roughly)
     mask_table = zc.color_inrange(img, 'HSV', H_L = 130, H_U = 160, S_L = 50, V_L = 50, V_U = 220)
@@ -89,32 +87,17 @@ def find_table(img, display_list):
     mask_table_convex, _ = zc.make_convex(mask_table.copy(), app_ratio = 0.005)
     mask_table = np.bitwise_or(mask_table, mask_table_convex)
     mask_table_raw = mask_table.copy()
-    zc.check_and_display_mask('table_purple', img, mask_table, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
 
     ## fine tune the purple table based on white border
     mask_white = np.bitwise_and(np.bitwise_not(mask_table), mask_white)
-    if 'mask_white' in display_list:
-        gray = np.float32(mask_white)
-        dst = cv2.cornerHarris(gray, 10, 3, 0.04)
-        dst = cv2.dilate(dst, None)
-        img_white = img.copy()
-        img_white[mask_white > 0, :] = [0, 255, 0]
-        img_white[dst > 2.4e7] = [0, 0, 255]
-        zc.check_and_display('mask_white', img_white, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
-    #mask_table, _ = zc.make_convex(mask_table, app_ratio = 0.005)
-    for i in xrange(15):
+    for i in range(15):
         mask_table = zc.expand(mask_table, 3)
         mask_table = np.bitwise_and(np.bitwise_not(mask_white), mask_table)
         if i % 4 == 3:
             mask_table, _ = zc.make_convex(mask_table, app_ratio = 0.01)
-            #img_display = img.copy()
-            #img_display[mask_table > 0, :] = [0, 0, 255]
-            #display_image('table%d-b' % i, img_display)
-            #mask_white = np.bitwise_and(np.bitwise_not(mask_table), mask_white)
             mask_table = np.bitwise_and(np.bitwise_not(mask_white), mask_table)
     mask_table, _ = zc.find_largest_CC(mask_table)
     mask_table, hull_table = zc.make_convex(mask_table, app_ratio = 0.01)
-    zc.check_and_display_mask('table_purple_fixed', img, mask_table, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
 
     ## check if table is big enough
     table_area = cv2.contourArea(hull_table)
@@ -173,12 +156,6 @@ def find_table(img, display_list):
         rtn_msg = {'status' : 'fail', 'message' : "Angle between two side edge not right"}
         return (rtn_msg, None)
 
-    if 'table' in display_list:
-        img_table = img.copy()
-        img_table[mask_table.astype(bool), :] = [255, 0, 255]
-        cv2.line(img_table, tuple(ul), tuple(ur), [0, 255, 0], 3)
-        zc.check_and_display('table', img_table, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
-
     ## rotate to make opponent upright, use table edge as reference
     pts1 = np.float32([ul,ur,[ul[0] + (ur[1] - ul[1]), ul[1] - (ur[0] - ul[0])]])
     pts2 = np.float32([[0, config.O_IMG_HEIGHT], [config.O_IMG_WIDTH, config.O_IMG_HEIGHT], [0, 0]])
@@ -195,7 +172,7 @@ def find_table(img, display_list):
     rtn_msg = {'status' : 'success'}
     return (rtn_msg, (img_rotated, mask_table, M))
 
-def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix, display_list):
+def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix):
     def get_ball_stat(mask_ball):
         cnt_ball = zc.mask2cnt(mask_ball)
         area = cv2.contourArea(cnt_ball)
@@ -210,7 +187,6 @@ def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix, di
     mask_ball, _ = zc.get_small_blobs(mask_ball, max_area = 2300)
     mask_ball, _ = zc.get_big_blobs(mask_ball, min_area = 8)
     mask_ball, counter = zc.get_square_blobs(mask_ball, th_diff = 0.2, th_area = 0.2)
-    zc.check_and_display_mask('ball_raw', img, mask_ball, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
 
     if counter == 0:
         rtn_msg = {'status' : 'fail', 'message' : "No good color candidate"}
@@ -223,7 +199,6 @@ def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix, di
 
     if mask_ball_ontable is not None: # if any ball on the table, we don't have to rely on previous ball positions
         mask_ball = mask_ball_ontable
-        zc.check_and_display_mask('ball', img, mask_ball, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
         return (rtn_msg, (mask_ball, get_ball_stat(mask_ball)))
 
     if mask_ball_prev is None: # mask_ball_ontable is already None
@@ -233,7 +208,6 @@ def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix, di
     cnt_ball_prev = zc.mask2cnt(mask_ball_prev)
     loc_ball_prev = zc.get_contour_center(cnt_ball_prev)[::-1]
     mask_ball = zc.get_closest_blob(mask_ball, loc_ball_prev)
-    zc.check_and_display_mask('ball', img, mask_ball, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
     cnt_ball = zc.mask2cnt(mask_ball)
     loc_ball = zc.get_contour_center(cnt_ball)[::-1]
     ball_moved_dist = zc.euc_dist(loc_ball_prev, loc_ball)
@@ -243,7 +217,7 @@ def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix, di
 
     return (rtn_msg, (mask_ball, get_ball_stat(mask_ball)))
 
-def find_opponent(img, img_prev, display_list):
+def find_opponent(img, img_prev):
     def draw_flow(img, flow, step = 16):
         h, w = img.shape[:2]
         y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1)
@@ -262,10 +236,6 @@ def find_opponent(img, img_prev, display_list):
     #start_time = current_milli_time()
 
     ## General preparations
-    if 'opponent' in display_list:
-        img_opponent = img_prev.copy()
-    zc.check_and_display('rotated', img, display_list, is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
-    zc.check_and_display('rotated_prev', img_prev, display_list, is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
     bw = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     bw_prev = cv2.cvtColor(img_prev, cv2.COLOR_BGR2GRAY)
 
@@ -290,8 +260,6 @@ def find_opponent(img, img_prev, display_list):
     ## method 1: optical flow - dense
     opt_flow = np.zeros((bw.shape[0], bw.shape[1], 2), dtype=np.float32)
     opt_flow[::2, ::2, :] = cv2.calcOpticalFlowFarneback(bw_prev[::2, ::2], bw[::2, ::2], pyr_scale = 0.5, levels = 1, winsize = 15, iterations = 3, poly_n = 7, poly_sigma = 1.5, flags = 0)
-    if 'denseflow' in display_list:
-        zc.display_image('denseflow', draw_flow(bw, opt_flow, step = 16), is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
     # clean optical flow
     mag_flow = np.sqrt(np.sum(np.square(opt_flow), axis = 2))
     bool_flow_valid = mag_flow > 2
@@ -304,8 +272,6 @@ def find_opponent(img, img_prev, display_list):
     opt_flow[:, :, 0] -= x_ave
     opt_flow[:, :, 1] -= y_ave
     opt_flow[bool_flow_invalid, :] = 0
-    if 'denseflow_cleaned' in display_list:
-        zc.display_image('denseflow_cleaned', draw_flow(bw, opt_flow, step = 16), is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
 
     # give the flow a "score"
     score_flow = np.sqrt(np.sum(np.square(opt_flow), axis = 2))
@@ -314,12 +280,6 @@ def find_opponent(img, img_prev, display_list):
     low_pass_h = np.ones(120)
     low_pass_h /= low_pass_h.sum()
     score_horizonal_filtered_dense = np.convolve(score_horizonal, low_pass_h, mode = 'same')
-    if 'dense_hist' in display_list:
-        plot_bar(score_horizonal_filtered_dense, name = 'dense_hist')
-        print np.argmax(score_horizonal_filtered_dense)
-    if 'opponent' in display_list:
-        cv2.circle(img_opponent, (np.argmax(score_horizonal_filtered_dense), 220), 20, (0, 255, 0), -1)
-    #print "time1: %f" % (current_milli_time() - start_time)
 
     ## method 2: optical flow - LK
     feature_params = dict(maxCorners = 100,
@@ -339,14 +299,6 @@ def find_opponent(img, img_prev, display_list):
     good_new = p1[st==1]
     good_old = p0[st==1]
     # draw the tracks
-    if 'LKflow' in display_list:
-        img_LK = img_prev.copy()
-        for i, (new, old) in enumerate(zip(good_new, good_old)):
-            a, b = new.ravel()
-            c, d = old.ravel()
-            cv2.line(img_LK, (a, b), (c, d), (0, 255, 0), 2)
-            cv2.circle(img_LK, (c, d), 5, (0, 255, 0), -1)
-        zc.display_image('LKflow', img_LK, is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
     bool_flow_valid= np.bitwise_and(bool_img_valid, np.bitwise_not(bool_white))
     bool_flow_invalid= np.bitwise_not(bool_flow_valid)
     bool_flow_valid_prev = np.bitwise_and(bool_img_prev_valid, np.bitwise_not(bool_white_prev))
@@ -362,14 +314,6 @@ def find_opponent(img, img_prev, display_list):
     reallygood_old = good_old[is_reallygood]
     motion = reallygood_new - reallygood_old
     motion_real = motion - np.mean(motion, axis = 0)
-    if 'LKflow_cleaned' in display_list:
-        img_LK_cleaned = img_prev.copy()
-        img_LK_cleaned[bool_flow_invalid_prev, :] = [0, 0, 255]
-        for i, (new, old) in enumerate(zip(reallygood_new, reallygood_old)):
-            c, d = old.ravel()
-            cv2.line(img_LK_cleaned, (c, d), (c + motion_real[i, 0], d + motion_real[i, 1]), (0, 255, 0), 2)
-            cv2.circle(img_LK_cleaned, (c, d), 5, (0, 255, 0), -1)
-        zc.display_image('LKflow_cleaned', img_LK_cleaned, is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
     score_flow = np.zeros(bw.shape, dtype = np.float32)
     score_flow[reallygood_old[:, 1].astype(np.int), reallygood_old[:, 0].astype(np.int)] = np.sqrt(np.sum(np.square(motion_real), axis = 1))
     score_flow = score_flow * row_score
@@ -377,21 +321,16 @@ def find_opponent(img, img_prev, display_list):
     low_pass_h = np.ones(120)
     low_pass_h /= low_pass_h.sum()
     score_horizonal_filtered_LK = np.convolve(score_horizonal, low_pass_h, mode = 'same')
-    if 'LK_hist' in display_list:
-        plot_bar(score_horizonal_filtered_LK, name = 'LK_hist')
-        print np.argmax(score_horizonal_filtered_LK)
     # if motion too small, probably no one is there...
     if np.max(score_horizonal_filtered_LK) < 300:
         # TODO: this is also a possible indication that the rally is not on
         rtn_msg = {'status': 'fail', 'message' : 'Motion too small, probably no one in the scene'}
         return (rtn_msg, None)
-    if 'opponent' in display_list:
-        cv2.circle(img_opponent, (np.argmax(score_horizonal_filtered_LK), 220), 20, (0, 0, 255), -1)
     #print "time2: %f" % (current_milli_time() - start_time)
 
     ## method 3: remove white wall
     mask_white = zc.color_inrange(img_prev, 'HSV', S_U = 50, V_L = 130)
-    zc.check_and_display('mask_white_wall', mask_white, display_list, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
+
     score = row_score
     score[bool_img_invalid] = 0
     score[bool_white] = 0
@@ -399,20 +338,10 @@ def find_opponent(img, img_prev, display_list):
     low_pass_h = np.ones(120)
     low_pass_h /= low_pass_h.sum()
     score_horizonal_filtered_wall = np.convolve(score_horizonal, low_pass_h, mode = 'same')
-    if 'wall_hist' in display_list:
-        plot_bar(score_horizonal_filtered_wall, name = 'wall_hist')
-        print np.argmax(score_horizonal_filtered_wall)
-    if 'opponent' in display_list:
-        cv2.circle(img_opponent, (np.argmax(score_horizonal_filtered_wall), 220), 20, (255, 0, 0), -1)
-    #print "time3: %f" % (current_milli_time() - start_time)
 
     ## combining results of three methods
-    #score_horizonal_filtered = score_horizonal_filtered_dense * score_horizonal_filtered_LK * score_horizonal_filtered_wall
     score_horizonal_filtered = score_horizonal_filtered_dense / 10 + score_horizonal_filtered_LK * 10
     opponent_x = np.argmax(score_horizonal_filtered)
-    if 'opponent' in display_list:
-        cv2.circle(img_opponent, (opponent_x, 220), 20, (200, 200, 200), -1)
-        zc.check_and_display('opponent', img_opponent, display_list, is_resize = False, wait_time = config.DISPLAY_WAIT_TIME)
 
     rtn_msg = {'status' : 'success'}
     return (rtn_msg, opponent_x)
