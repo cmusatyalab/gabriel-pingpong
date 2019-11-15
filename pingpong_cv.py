@@ -21,57 +21,18 @@
 
 import cv2
 import math
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import sys
-import time
 
 sys.path.insert(0, "..")
 import zhuocv as zc
-import config
 
-current_milli_time = lambda: int(round(time.time() * 1000))
-
-
-#############################################################
-def plot_bar(bar_data, name = 'unknown', h = 300, w = 300, wait_time = None, is_resize = False, resize_method = "max", resize_max = None, resize_scale = None, save_image = None):
-    if wait_time is None:
-        wait_time = config.DISPLAY_WAIT_TIME
-    if resize_max is None:
-        resize_max = config.DISPLAY_MAX_PIXEL
-    if resize_scale is None:
-        resize_scale = config.DISPLAY_SCALE
-    if save_image is None:
-        save_image = config.SAVE_IMAGE
-    zc.plot_bar(bar_data, name, h, w, wait_time, is_resize, resize_method, resize_max, resize_scale, save_image)
-
-def display_state(state):
-    img_display = np.ones((200, 400, 3), dtype = np.uint8) * 100
-    if state['is_playing']:
-        cv2.putText(img_display, "Playing", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, [0, 255, 0])
-        cv2.putText(img_display, "The ball was last hit to %s" % state['ball_position'], (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, [255, 100, 100])
-        cv2.putText(img_display, "Opponent is on the %s" % state['opponent_position'], (10, 170), cv2.FONT_HERSHEY_SIMPLEX, 0.8, [255, 100, 100])
-    else:
-        cv2.putText(img_display, "Stopped", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, [0, 0, 255])
-
-    zc.display_image('state', img_display, resize_max = config.DISPLAY_MAX_PIXEL, wait_time = config.DISPLAY_WAIT_TIME)
-
-#double angle(  Point pt1,  Point pt2,  Point pt0 ) {
-#    double dx1 = pt1.x - pt0.x;
-#    double dy1 = pt1.y - pt0.y;
-#    double dx2 = pt2.x - pt0.x;
-#    double dy2 = pt2.y - pt0.y;
-#    return (dx1*dx2 + dy1*dy2)/sqrt((dx1*dx1 + dy1*dy1)*(dx2*dx2 + dy2*dy2) + 1e-10);
-#}
-
-
-#############################################################
 
 def check_image(img):
     zc.checkBlurByGradient(img)
 
-def find_table(img):
+def find_table(img, o_img_height, o_img_width):
     ## find white border
     DoB = zc.get_DoB(img, 1, 31, method = 'Average')
     mask_white = zc.color_inrange(DoB, 'HSV', V_L = 10)
@@ -158,14 +119,14 @@ def find_table(img):
 
     ## rotate to make opponent upright, use table edge as reference
     pts1 = np.float32([ul,ur,[ul[0] + (ur[1] - ul[1]), ul[1] - (ur[0] - ul[0])]])
-    pts2 = np.float32([[0, config.O_IMG_HEIGHT], [config.O_IMG_WIDTH, config.O_IMG_HEIGHT], [0, 0]])
+    pts2 = np.float32([[0, o_img_height], [o_img_width, o_img_height], [0, 0]])
     M = cv2.getAffineTransform(pts1, pts2)
     img[np.bitwise_not(zc.get_mask(img, rtn_type = "bool", th = 3)), :] = [3,3,3]
-    img_rotated = cv2.warpAffine(img, M, (config.O_IMG_WIDTH, config.O_IMG_HEIGHT))
+    img_rotated = cv2.warpAffine(img, M, (o_img_width, o_img_height))
 
     ## sanity checks about rotated opponent image
     bool_img_rotated_valid = zc.get_mask(img_rotated, rtn_type = "bool")
-    if float(bool_img_rotated_valid.sum()) / config.O_IMG_WIDTH / config.O_IMG_HEIGHT < 0.7:
+    if float(bool_img_rotated_valid.sum()) / o_img_width / o_img_height < 0.7:
         rtn_msg = {'status' : 'fail', 'message' : "Valid area too small after rotation"}
         return (rtn_msg, None)
 
@@ -217,7 +178,7 @@ def find_pingpong(img, img_prev, mask_table, mask_ball_prev, rotation_matrix):
 
     return (rtn_msg, (mask_ball, get_ball_stat(mask_ball)))
 
-def find_opponent(img, img_prev):
+def find_opponent(img, img_prev, o_img_height):
     def draw_flow(img, flow, step = 16):
         h, w = img.shape[:2]
         y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1)
@@ -232,8 +193,6 @@ def find_opponent(img, img_prev):
     def draw_rects(img, rects, color):
         for x1, y1, x2, y2 in rects:
             cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-
-    #start_time = current_milli_time()
 
     ## General preparations
     bw = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -256,10 +215,11 @@ def find_opponent(img, img_prev):
     row_score, col_score = np.mgrid[0 : img.shape[0], 0 : img.shape[1]]
     row_score = img.shape[0] * 1.2 - row_score.astype(np.float32)
 
-    #print "time0: %f" % (current_milli_time() - start_time)
     ## method 1: optical flow - dense
     opt_flow = np.zeros((bw.shape[0], bw.shape[1], 2), dtype=np.float32)
-    opt_flow[::2, ::2, :] = cv2.calcOpticalFlowFarneback(bw_prev[::2, ::2], bw[::2, ::2], pyr_scale = 0.5, levels = 1, winsize = 15, iterations = 3, poly_n = 7, poly_sigma = 1.5, flags = 0)
+    opt_flow[::2, ::2, :] = cv2.calcOpticalFlowFarneback(
+        bw_prev[::2, ::2], bw[::2, ::2], None, pyr_scale=0.5, levels=1, winsize=15, iterations=3, poly_n=7,
+        poly_sigma=1.5, flags=0)
     # clean optical flow
     mag_flow = np.sqrt(np.sum(np.square(opt_flow), axis = 2))
     bool_flow_valid = mag_flow > 2
@@ -307,7 +267,8 @@ def find_opponent(img, img_prev):
     for i, (new, old) in enumerate(zip(good_new, good_old)):
         a, b = new.ravel()
         c, d = old.ravel()
-        if bool_flow_invalid_prev[d, c] or max(a, b) > config.O_IMG_HEIGHT or min(a, b) < 0 or bool_flow_invalid[b, a]:
+        if (bool_flow_invalid_prev[int(d), int(c)] or max(a, b) > o_img_height or
+            min(a, b) < 0 or bool_flow_invalid[int(b), int(a)]):
             continue
         is_reallygood[i] = True
     reallygood_new = good_new[is_reallygood]
@@ -326,7 +287,6 @@ def find_opponent(img, img_prev):
         # TODO: this is also a possible indication that the rally is not on
         rtn_msg = {'status': 'fail', 'message' : 'Motion too small, probably no one in the scene'}
         return (rtn_msg, None)
-    #print "time2: %f" % (current_milli_time() - start_time)
 
     ## method 3: remove white wall
     mask_white = zc.color_inrange(img_prev, 'HSV', S_U = 50, V_L = 130)

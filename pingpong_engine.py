@@ -41,7 +41,9 @@ O_IMG_HEIGHT = 300
 
 logger = logging.getLogger(__name__)
 
-current_milli_time = lambda: int(round(time.time() * 1000))
+
+def current_milli_time():
+    return int(round(time.time() * 1000))
 
 
 class Trace:
@@ -75,7 +77,7 @@ class Trace:
         if loc_min is None:
             return "unknown"
         loc_x = loc_min[0]
-        if loc_x < config.O_IMG_WIDTH / 2:
+        if loc_x < O_IMG_WIDTH / 2:
             return "left"
         else:
             return "right"
@@ -104,7 +106,7 @@ class PingpongEngine(cognitive_engine.Engine):
     def __init__(self):
         self.prev_frame_info = None
         self.ball_trace = Trace(20)
-        self.opponent_x = config.O_IMG_WIDTH / 2
+        self.opponent_x = O_IMG_WIDTH / 2
         self.state = {'is_playing' : False,
                       'ball_position' : "unknown",
                       'opponent_position' : "unknown",
@@ -135,6 +137,9 @@ class PingpongEngine(cognitive_engine.Engine):
             img = cv2.resize(img, (0, 0), fx=resize_ratio, fy=resize_ratio,
                              interpolation=cv2.INTER_AREA)
 
+        frame_time = current_milli_time()
+        self.state['is_playing'] = self.ball_trace.is_playing(frame_time) and self.seen_opponent
+            
         ## check if two frames are too close
         if (self.prev_frame_info is not None and
             frame_time - self.prev_frame_info['time'] < 80):
@@ -142,7 +147,7 @@ class PingpongEngine(cognitive_engine.Engine):
             return complete_result_wrapper(result_wrapper, engine_fields)
 
         ## find table
-        rtn_msg, objects = pingpong_cv.find_table(img)
+        rtn_msg, objects = pingpong_cv.find_table(img, O_IMG_HEIGHT, O_IMG_WIDTH)
         if rtn_msg['status'] != 'success':
             logger.info(rtn_msg['message'])
             return complete_result_wrapper(result_wrapper, engine_fields)
@@ -188,7 +193,7 @@ class PingpongEngine(cognitive_engine.Engine):
 
         ## find position (relatively, left or right) of your opponent
         rtn_msg, objects = pingpong_cv.find_opponent(
-            img_rotated, self.prev_frame_info['img_rotated'])
+            img_rotated, self.prev_frame_info['img_rotated'], O_IMG_HEIGHT)
         if rtn_msg['status'] != 'success':
             self.seen_opponent = False
             logger.info(rtn_msg['message'])
@@ -202,7 +207,6 @@ class PingpongEngine(cognitive_engine.Engine):
             "left" if self.opponent_x < O_IMG_WIDTH * 0.58 else "right")
 
         t = time.time()
-        result['status'] = "success"
         if self.state['is_playing']:
             if self.state['opponent_position'] == "left":
                 if ((t - self.last_played_t < 3 and self.last_played == "right")
@@ -226,5 +230,4 @@ class PingpongEngine(cognitive_engine.Engine):
                 self.last_played = speech
                 result_with_update(result_wrapper, engine_fields, speech)
 
-
-    return complete_result_wrapper(result_wrapper, engine_fields)
+        return complete_result_wrapper(result_wrapper, engine_fields)
