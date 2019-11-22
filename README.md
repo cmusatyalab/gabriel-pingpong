@@ -27,3 +27,4 @@ Pressing the 'Play' button next to a server will initiate a connection to the Ga
 ```bash
 docker run --rm -it -p 9099:9099 cmusatyalab/gabriel-pingpong:latest
 ```
+Note that the server maintins the state of the application. Therefore, one server cannot support multiple clients and the server must be restarted in between uses. In the future, it would be good to move application state to the the protobuf messages that get passed between the client and server. 
