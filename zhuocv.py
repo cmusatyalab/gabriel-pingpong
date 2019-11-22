@@ -133,7 +133,7 @@ def get_mask(img, rtn_type = "mask", th = 0):
     img_shape = img.shape
     if len(img_shape) > 2 and img_shape[2] > 1: # color image
         mask = np.zeros(img_shape[0:2], dtype = bool)
-        for i in xrange(img_shape[2]):
+        for i in range(img_shape[2]):
             mask = np.bitwise_or(mask, img[:,:,i] > th)
     else:
         mask = img > th
@@ -414,7 +414,7 @@ def display_image(display_name, img, wait_time = -1, is_resize = True, resize_me
         elif resize_scale > 0:
             img_display = cv2.resize(img, (width * resize_scale, height * resize_scale), interpolation = cv2.INTER_NEAREST)
         else:
-            print "Unexpected parameter in image display. About to exit..."
+            print("Unexpected parameter in image display. About to exit...")
             sys.exit()
     else:
         img_display = img
@@ -561,7 +561,7 @@ def get_corner_pts(bw, perimeter = None, center = None, method = 'line', is_debu
             for line in lines:
                 pt1 = (line[0], line[1])
                 pt2 = (line[2], line[3])
-                print (pt1, pt2)
+                print((pt1, pt2))
                 cv2.line(img, pt1, pt2, (255, 255, 255), 1)
             cv2.namedWindow('test')
             display_image('test', img)
@@ -577,7 +577,7 @@ def get_corner_pts(bw, perimeter = None, center = None, method = 'line', is_debu
             if flag:
                 new_lines.append(list(line))
         if is_debug:
-            print "four lines: %s" % new_lines
+            print("four lines: %s" % new_lines)
         if len(new_lines) != 4:
             return None
 
@@ -594,7 +594,7 @@ def get_corner_pts(bw, perimeter = None, center = None, method = 'line', is_debu
                 if dist < perimeter / 3:
                     corners.append(inter_p)
         if is_debug:
-            print "corners: %s" % corners
+            print("corners: %s" % corners)
         if len(corners) != 4:
             return None
 
@@ -615,7 +615,7 @@ def get_corner_pts(bw, perimeter = None, center = None, method = 'line', is_debu
         bl = list(bl)
         br = list(br)
         if is_debug:
-            print "ul: %s, ur: %s, bl: %s, br: %s" % (ul, ur, bl, br)
+            print("ul: %s, ur: %s, bl: %s, br: %s" % (ul, ur, bl, br))
 
         # some sanity check here
         if sanity_checks == "perspective":
@@ -715,7 +715,7 @@ def rotate(img, n_iterations = 2):
     img_ret = img
     rotation_degree = 0
     rotation_mtx = None
-    for iteration in xrange(n_iterations): # Sometimes need multiple iterations to get the rotation right
+    for iteration in range(n_iterations): # Sometimes need multiple iterations to get the rotation right
         bw = cv2.cvtColor(img_ret, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(bw, 50, 100)
         rotation_degree_tmp = get_rotation_degree(edges)
@@ -723,7 +723,7 @@ def rotate(img, n_iterations = 2):
             rtn_msg = {'status' : 'fail', 'message' : 'Cannot get rotation degree'}
             return (rtn_msg, None)
         weight = 1
-        for i in xrange(3):
+        for i in range(3):
             bw[:] = img_ret[:,:,i][:]
             edges = cv2.Canny(bw, 50, 100)
             d = get_rotation_degree(edges)
@@ -759,29 +759,6 @@ def crop(img, borders):
     else:
         img_cropped = img[min_row : max_row + 1, min_col : max_col + 1]
     return img_cropped, (min_row, max_row, min_col, max_col)
-
-#def smart_crop(img):
-#    bw = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#    ret, bi = cv2.threshold(bw, 0, 1, cv2.THRESH_BINARY)
-#    # TODO: has a risk that the sum here may excede uint8...
-#    sum_0 = bi.sum(axis = 0)
-#    sum_1 = bi.sum(axis = 1)
-#    i_start = 0; i_end = bi.shape[0] - 1; j_start = 0; j_end = bi.shape[1] - 1
-#    i_start_cmp_val = sum_1[int(round(config.BRICK_HEIGHT / 4.0 * 2))] * 0.6
-#    while sum_1[i_start] < i_start_cmp_val:
-#        i_start += 1
-#    i_end_cmp_val = sum_1[bi.shape[0] - 1 - int(round(config.BRICK_HEIGHT / 4.0 * 2))] * 0.6
-#    while sum_1[i_end] < i_end_cmp_val:
-#        i_end -= 1
-#    j_start_cmp_val = sum_0[int(round(config.BRICK_WIDTH / 4.0 * 2))] * 0.6
-#    while sum_0[j_start] < j_start_cmp_val:
-#        j_start += 1
-#    j_end_cmp_val = sum_0[bi.shape[1] - 1 - int(round(config.BRICK_WIDTH / 4.0 * 2))] * 0.6
-#    while sum_0[j_end] < j_end_cmp_val:
-#        j_end -= 1
-#
-#    #print (bi.shape, i_start, i_end, j_start, j_end)
-#    return img[i_start : i_end + 1, j_start : j_end + 1, :], (i_start, i_end, j_start, j_end)
 
 ################################ COLOR #########################################
 def normalize_brightness(img, mask = None, method = 'hist', max_percentile = 100, min_percentile = 0):
@@ -828,7 +805,7 @@ def normalize_color(img, mask_info = None, mask_apply = None, method = 'hist', m
         mask_apply = mask_apply.astype(bool)
     img_ret = img.copy()
     if method == 'hist': # doesn't work well for over-exposed images
-        for i in xrange(3):
+        for i in range(3):
             v = img[:,:,i]
             hist,bins = np.histogram(v[mask_info].flatten(),256,[0,256])
             cdf = hist.cumsum()
@@ -841,7 +818,7 @@ def normalize_color(img, mask_info = None, mask_apply = None, method = 'hist', m
     elif method == 'grey':
         img = img.astype(float)
         max_rgb = 0
-        for i in xrange(3):
+        for i in range(3):
             v = img[:,:,i]
             #print v[mask_info].mean()
             v[mask_apply] = v[mask_apply] / v[mask_info].mean()
@@ -866,7 +843,7 @@ def normalize_color(img, mask_info = None, mask_apply = None, method = 'hist', m
 
         img = img.astype(float)
         max_rgb = 0
-        for i in xrange(3):
+        for i in range(3):
             v = img[:,:,i]
             v[mask_apply] = v[mask_apply] / v[mask_info].mean()
             img[:,:,i] = v
@@ -884,7 +861,7 @@ def normalize_color(img, mask_info = None, mask_apply = None, method = 'hist', m
     elif method == 'max':
         #b, g, r = cv2.split(img)
         #img = cv2.merge((b, g, r))
-        for i in xrange(3):
+        for i in range(3):
             v = img[:,:,i]
             max_v = np.percentile(v[mask], max_percentile)
             min_v = np.percentile(v[mask], min_percentile)
@@ -962,7 +939,7 @@ def detect_color(img_hsv, color, on_surface = False):
     elif color == "white":
         mask = color_inrange(None, 'HSV', hsv = img_hsv, S_U = 60, V_L = 190)
     else:
-        print "ERROR: color detection has specified an undefined color!!!!"
+        print("ERROR: color detection has specified an undefined color!!!!")
 
     return mask
 
@@ -1054,8 +1031,8 @@ def checkBlurByGradient(img, gradientPatchNBox = 5, gradientPatchWidth = 25, gra
     bw = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     n_rows, n_cols = img.shape[:2]
     max_gradients = 0
-    for i in xrange(gradientPatchNBox):
-        for j in xrange(gradientPatchNBox):
+    for i in range(gradientPatchNBox):
+        for j in range(gradientPatchNBox):
             top = (n_rows / ( 2 * gradientPatchNBox + 1)) * (2 * i + 1);
             left = (n_cols / ( 2 * gradientPatchNBox + 1)) * (2 * j + 1);
             bw_window = bw[top : top + gradientPatchHeight, left : left + gradientPatchWidth]
@@ -1068,159 +1045,3 @@ def checkBlurByGradient(img, gradientPatchNBox = 5, gradientPatchWidth = 25, gra
         return False
     else:
         return True
-
-########################## OBJECT DETECTION ###################################
-### http://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
-def non_max_suppression_fast(boxes, overlapThresh):
-    if len(boxes) == 0:
-        return [], []
-
-    # if the bounding boxes are integers, convert them to floats --
-    # this is important since we'll be doing a bunch of divisions
-    if boxes.dtype.kind == "i":
-        boxes = boxes.astype("float")
-
-    # initialize the list of picked indexes
-    pick = []
-
-    # grab the coordinates of the bounding boxes
-    x1 = boxes[:,0]
-    y1 = boxes[:,1]
-    x2 = boxes[:,2]
-    y2 = boxes[:,3]
-
-    # compute the area of the bounding boxes and sort the bounding
-    # boxes by the bottom-right y-coordinate of the bounding box
-    area = (x2 - x1 + 1) * (y2 - y1 + 1)
-    idxs = np.argsort(y2)
-
-    # keep looping while some indexes still remain in the indexes list
-    while len(idxs) > 0:
-        # grab the last index in the indexes list and add the
-        # index value to the list of picked indexes
-        last = len(idxs) - 1
-        i = idxs[last]
-        pick.append(i)
-
-        # find the largest (x, y) coordinates for the start of
-        # the bounding box and the smallest (x, y) coordinates
-        # for the end of the bounding box
-        xx1 = np.maximum(x1[i], x1[idxs[:last]])
-        yy1 = np.maximum(y1[i], y1[idxs[:last]])
-        xx2 = np.minimum(x2[i], x2[idxs[:last]])
-        yy2 = np.minimum(y2[i], y2[idxs[:last]])
-
-        # compute the ratio of overlap
-        w = np.maximum(0, xx2 - xx1 + 1)
-        h = np.maximum(0, yy2 - yy1 + 1)
-        overlap = (w * h) / area[idxs[:last]]
-
-        # delete all indexes from the index list that overlap too much
-        idxs = np.delete(idxs, np.concatenate(([last],
-            np.where(overlap > overlapThresh)[0])))
-
-    return boxes[pick].astype("int"), pick
-
-def cv_img2sk_img(cv_img):
-    sk_img = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-    return sk_img
-
-def object_detection(cv_img, labels, window_method = "region", recognition_method = "cnn", net = None, transformer = None):
-    import dlib
-
-    ## selective search to find candidate bounding boxes
-    sk_img = cv_img2sk_img(cv_img)
-    rects = [] # locations of the candidates
-    dlib.find_candidate_object_locations(sk_img, rects, min_size = cv_img.shape[0] * cv_img.shape[1] / 100)
-
-    ## count how many rects are promissing
-    rect_candidates = []
-    for rect in rects:
-        x1, y1, x2, y2 = rect.left(), rect.top(), rect.right(), rect.bottom()
-        aspect_ratio = float(y2 - y1) / (x2 - x1)
-        if aspect_ratio > 0.6 and aspect_ratio < 1.6 \
-                and y1 != 0 and y2 != sk_img.shape[0] - 1 and x1 != 0 and x2 != sk_img.shape[1] - 1:
-            rect_candidates.append([x1, y1, x2, y2])
-            if len(rect_candidates) > 50:
-                break
-    print "# of candidate rectangles: %d" % len(rect_candidates)
-
-    ## if nothing interesting in the image
-    if not rect_candidates:
-        return ([], [])
-
-    ## do recognition for the rects in a batch
-    data_layer = net.blobs['data']
-    data_layer.reshape(len(rect_candidates), data_layer.channels, data_layer.height, data_layer.width)
-    for idx, rect in enumerate(rect_candidates):
-        x1, y1, x2, y2 = rect
-        img_rect = cv_img[y1 : y2 + 1, x1 : x2 + 1, :]
-        net.blobs['data'].data[idx, ...] = transformer.preprocess('data', img_rect)
-
-    ## real DNN processing
-    out = net.forward()
-    label_idxes = out['prob'].argmax(axis = 1)
-
-    ## find rects that are not just background
-    rect_detected = []
-    label_idxes_detected = []
-    for idx, rect in enumerate(rect_candidates):
-        if label_idxes[idx] != len(labels) - 1:
-            rect_detected.append(rect)
-            label_idxes_detected.append(label_idxes[idx])
-
-    return (rect_detected, label_idxes_detected)
-
-def object_recognition(cv_img, recognition_method = "cnn", svm_classifiers = [], net = None, transformer = None, hog_svm = None, hog_descriptor = None):
-
-    if recognition_method == "cnn":
-        ## set up input later of net
-        data_layer = net.blobs['data']
-        data_layer.reshape(1, data_layer.channels, data_layer.height, data_layer.width)
-        data_layer.data[0, ...] = transformer.preprocess('data', cv_img)
-
-        ## real DNN processing
-        out = net.forward()
-        label_idx = out['prob'].argmax()
-    elif recognition_method == "hog-svm":
-        bw = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-        if bw.shape[0] != 128 or bw.shape[1] != 128:
-            bw = cv2.resize(bw, (128, 128))
-        hog_features = np.transpose(hog_descriptor.compute(bw))
-        label_idx = int(hog_svm.predict(hog_features))
-
-    elif recognition_method == "s-svm":
-        sk_img = cv_img2sk_img(cv_img)
-        label_idx = -1
-        for idx, detector in enumerate(svm_classifiers):
-            dets = detector(sk_img)
-            if len(dets) > 0:
-                if label_idx == -1:
-                    label_idx = idx
-                else:
-                    label_idx = -1
-                    break
-        if label_idx == -1:
-            label_idx = len(svm_classifiers)
-
-    return label_idx
-
-################### FACE DETECTION & RECOGNITION ##############################
-def detect_face(img, method = "openface", openface_align = None):
-    if method == "openface":
-        bb = openface_align.getLargestFaceBoundingBox(img)
-        return bb
-
-def get_face_feature(img, align, align_img_dim, net):
-    bb = align.getLargestFaceBoundingBox(img)
-    if bb is None:
-        return None
-
-    alignedFace = align.alignImg("affine", align_img_dim, img, bb)
-    if alignedFace is None:
-        return None
-
-    rep = net.forwardImage(alignedFace)
-
-    return rep
-
